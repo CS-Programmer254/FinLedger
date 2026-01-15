@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finledger-db
+    environment:
+      POSTGRES_DB: finledger
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finledger-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: finledger-cache
+    ports:
+      - "6379:6379"
+    networks:
+      - finledger-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: finledger-mq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"      # Messaging
+      - "15672:15672"    # Management UI
+    networks:
+      - finledger-network
+
+  api:
+    build:
+      context: ./FinLedger    # <-- Make sure this points to your API project folder
+      dockerfile: Dockerfile
+    container_name: finledger-api
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=finledger;Username=postgres;Password=postgres;"
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:5000;https://+:5001"
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    networks:
+      - finledger-network
+
+volumes:
+  postgres_data:
+
+networks:
+  finledger-network:
+    driver: bridge

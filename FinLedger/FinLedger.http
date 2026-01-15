@@ -1,0 +1,6 @@
+@FinLedger_HostAddress = http://localhost:5249
+
+GET {{FinLedger_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
